@@ -8,13 +8,14 @@ CYAN = '\033[96m'
 GREEN = '\033[92m'
 YELLOW = '\033[93m'
 MAGENTA = '\033[95m'
+RED = '\033[91m'
 RESET = '\033[0m'
 
 C_SOURCE = """#include <stdio.h>
 
 int main() {
     int power_level = 9000;
-    printf("Hello, World!\\n");
+    printf("Scanner says: %d\\n", power_level);
     return 0;
 }"""
 
@@ -27,8 +28,7 @@ def animate_text(text, delay=0.01, color=RESET):
 
 def lexer(code):
     animate_text(">>> [1/3] INITIATING LEXICAL ANALYSIS...", 0.03, CYAN)
-    
-    # Added |(\S) at the end to catch any non-whitespace character that fails to match
+    # The catch-all group |(\S) prevents silent failures
     token_specification = r'(#include\s+<.*?>)|(".*?")|(\w+)|([{}();,=])|(\S)'
     tokens = []
     
@@ -40,8 +40,8 @@ def lexer(code):
         elif text.isdigit(): kind = 'NUMBER'
         elif text in ['int', 'return']: kind = 'KEYWORD'
         elif re.match(r'^[{}();,=]$', text): kind = 'SYMBOL'
-        elif match.group(5): # The catch-all group triggered
-            print(f"{RED}SYNTAX ERROR: Unrecognized character '{text}'{RESET}")
+        elif match.group(5): 
+            print(f"\n{RED}SYNTAX ERROR: Unrecognized character '{text}'{RESET}")
             sys.exit(1)
         else: kind = 'IDENTIFIER'
         
@@ -59,7 +59,7 @@ def parser(tokens):
     while i < len(tokens):
         kind, val = tokens[i]
         
-        # 1. Detect Variable Declarations: int x = 5;
+        # 1. Detect Variable Declarations
         if kind == 'KEYWORD' and val == 'int' and i + 3 < len(tokens):
             if tokens[i+1][0] == 'IDENTIFIER' and tokens[i+2][1] == '=':
                 var_name = tokens[i+1][1]
@@ -69,14 +69,19 @@ def parser(tokens):
                 ast["body"].append(node)
                 time.sleep(0.2)
                 print(f"  {MAGENTA}AST Node Generated:{RESET} {node}")
-                
-                i += 4 # Skip ahead past 'int', 'name', '=', 'value'
+                i += 4
                 continue
                 
-        # 2. Detect Function Calls: printf("...");
+        # 2. Detect Function Calls (Now supporting arguments)
         if kind == 'IDENTIFIER' and val == 'printf':
             str_arg = tokens[i+2][1].strip('"')
-            node = {"type": "CallExpression", "name": "printf", "value": str_arg}
+            var_arg = None
+            
+            # Look ahead to see if there is a comma after the string
+            if i + 3 < len(tokens) and tokens[i+3][1] == ',':
+                var_arg = tokens[i+4][1] # Extract the variable name
+                
+            node = {"type": "CallExpression", "name": "printf", "value": str_arg, "variable": var_arg}
             ast["body"].append(node)
             time.sleep(0.2)
             print(f"  {MAGENTA}AST Node Generated:{RESET} {node}")
@@ -90,7 +95,6 @@ def execute(ast):
     time.sleep(0.5)
     print(f"\n{GREEN}--- PROGRAM OUTPUT ---{RESET}")
     
-    # Virtual Memory Environment
     memory = {}
     
     for node in ast["body"]:
@@ -102,10 +106,20 @@ def execute(ast):
         # Execute Print Statement
         elif node["type"] == "CallExpression" and node["name"] == "printf":
             output = node["value"].replace('\\n', '\n')
+            
+            # Memory Injection Logic
+            if node.get("variable"):
+                target_var = node["variable"]
+                if target_var in memory:
+                    # Replace %d with the value pulled from memory
+                    output = output.replace("%d", str(memory[target_var]))
+                else:
+                    print(f"\n{RED}RUNTIME ERROR: Variable '{target_var}' is not defined!{RESET}")
+                    sys.exit(1)
+                    
             animate_text(output, 0.05, GREEN)
             
     print(f"{GREEN}----------------------{RESET}")
-    print(f"\nFinal Memory State: {memory}")
 
 if __name__ == "__main__":
     animate_text("LOADING C SOURCE CODE:\n", 0.02)
