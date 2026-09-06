@@ -27,8 +27,9 @@ def animate_text(text, delay=0.01, color=RESET):
 
 def lexer(code):
     animate_text(">>> [1/3] INITIATING LEXICAL ANALYSIS...", 0.03, CYAN)
-    # Added '=' to the symbol capture group
-    token_specification = r'(#include\s+<.*?>)|(".*?")|(\w+)|([{}();,=])'
+    
+    # Added |(\S) at the end to catch any non-whitespace character that fails to match
+    token_specification = r'(#include\s+<.*?>)|(".*?")|(\w+)|([{}();,=])|(\S)'
     tokens = []
     
     for match in re.finditer(token_specification, code):
@@ -36,9 +37,12 @@ def lexer(code):
         
         if text.startswith('#'): kind = 'PREPROCESSOR'
         elif text.startswith('"'): kind = 'STRING'
-        elif text.isdigit(): kind = 'NUMBER' # New rule for digits
+        elif text.isdigit(): kind = 'NUMBER'
         elif text in ['int', 'return']: kind = 'KEYWORD'
         elif re.match(r'^[{}();,=]$', text): kind = 'SYMBOL'
+        elif match.group(5): # The catch-all group triggered
+            print(f"{RED}SYNTAX ERROR: Unrecognized character '{text}'{RESET}")
+            sys.exit(1)
         else: kind = 'IDENTIFIER'
         
         tokens.append((kind, text))
