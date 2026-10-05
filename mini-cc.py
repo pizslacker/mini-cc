@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# mini-cc.py
+# mini-cc.py - lexes, parses, and executes a C variable statement
 # Copyright (C) k!M/pizslacker 2026
 #
 # This program is free software: you can redistribute it and/or modify
